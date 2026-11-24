@@ -48,6 +48,55 @@ Conduct an adaptive interview for the selected stakeholder. Ask one or two conci
 Return {"reply":"natural conversational answer and next question","requirements":[{"statement":"...","category":"one of ${CATEGORIES.join(', ')}","priority":"Must|Should|Could","acceptanceCriteria":"only if stated; otherwise empty string","quote":"exact substring of latest answer"}],"factors":{"factorId":{"value":1,"reason":"explanation","quote":"exact substring of latest answer"}},"conflicts":[{"description":"specific disagreement","sourceIds":["message id","message id"]}]}.
 Factors use integer 1..5 with these anchors: ${FACTORS.map(f=>`${f.id}: 1=${f.low}; 5=${f.high}`).join('; ')}. Include only factors evidenced in the latest answer; omit others. Record contradictions rather than silently resolving them.`;
 }
+export function documentIntakePrompt() {
+  return `${safety}
+You are analyzing a transcript, interview notes, or document containing stakeholder conversations.
+Extract the key stakeholders, their statements, the formally specified software requirements, the 8 project decision factors, and any conflicting requirements or constraints.
+
+For EACH requirement:
+- "statement": A clear, formal requirement in unambiguous engineering specification language (e.g. "The system shall...").
+- "category": One of ${CATEGORIES.join(', ')}.
+- "priority": "Must", "Should", or "Could".
+- "acceptanceCriteria": Testable, objective verification criteria.
+- "quote": An EXACT verbatim substring from the document that serves as direct proof for this requirement.
+- "derivation": A clear, detailed explanation of how the AI derived this formal requirement from the stakeholder dialogue, the underlying business or operational rationale, and why it is categorized and prioritized this way.
+- "stakeholderName": The name or role of the stakeholder who expressed this need.
+
+For the project decision factors:
+Assess each of the 8 factors with an integer score (1..5) with anchors: ${FACTORS.map(f=>`${f.id}: 1=${f.low}; 5=${f.high}`).join('; ')}.
+For each factor found in the document, return: {"value": 1..5, "reason": "reasoning based on evidence", "quote": "exact verbatim substring from document"}. Only include factors that have evidence in the document.
+
+For conflicts:
+If any stakeholders contradict each other (e.g. on scope, performance, manual review vs automation, release dates), describe the conflict and provide the verbatim quotes from both sides.
+
+Return JSON format:
+{
+  "summary": "Brief executive summary of the stakeholder input and project scope",
+  "stakeholders": [
+    {"name": "...", "role": "..."}
+  ],
+  "messages": [
+    {"stakeholderName": "...", "text": "exact quote or statement segment"}
+  ],
+  "requirements": [
+    {
+      "statement": "...",
+      "category": "...",
+      "priority": "Must|Should|Could",
+      "acceptanceCriteria": "...",
+      "quote": "exact verbatim substring from document",
+      "derivation": "explanation of how the AI derived this requirement from the stakeholder's context",
+      "stakeholderName": "..."
+    }
+  ],
+  "factors": {
+    "factorId": {"value": 1, "reason": "...", "quote": "exact verbatim substring from document"}
+  },
+  "conflicts": [
+    {"description": "...", "quoteA": "...", "quoteB": "..."}
+  ]
+}`;
+}
 export function agentPrompt(agent) {
   return `${safety} You are the ${agent.name}. ${agent.focus}
 Analyse only the supplied frozen project and retrieved PDF passages. Never overwrite evidence or decide by agent majority. Explain tradeoffs of the deterministic rubric and identify its limitations. Use sourceIds for project message evidence and referenceIds for supplied PDF chunk IDs. Recommendations are advisory. Make the relationship between project evidence and the cited passage explicit. Do not invent a supporting source where none exists; instead identify that limitation as a gap.

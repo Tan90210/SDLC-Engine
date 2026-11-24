@@ -4,11 +4,12 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { createStore, newProject, uid, now } from './src/store.js';
 import { FACTORS, CATEGORIES, ROLES, AGENTS } from './src/catalog.js';
-import { readiness, rank, snapshotHash, validateExtraction, demoExtract } from './src/engine.js';
-import { complete, freeModel, interviewPrompt, agentPrompt } from './src/llm.js';
+import { readiness, rank, snapshotHash, validateExtraction, demoExtract, validateDocumentIntake, demoDocumentIntake, applyDocumentIntake } from './src/engine.js';
+import { complete, freeModel, interviewPrompt, agentPrompt, documentIntakePrompt } from './src/llm.js';
 import { report, requirementsCSV } from './src/export.js';
 import { createRag } from './src/rag.js';
 import { createPdfPreview,sourcePage } from './src/pdf-preview.js';
+import { parseDocument } from './src/document-parser.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 class HttpError extends Error { constructor(status,message) { super(message); this.status=status; } }
@@ -80,7 +81,7 @@ export function createApplication({ dataDir=process.env.DATA_DIR||join(root,'dat
     if(['POST','PATCH','PUT'].includes(req.method)) {
       assert((req.headers['content-type']||'').startsWith('application/json'),'Use application/json.',415);
       req.setEncoding('utf8');
-      let content='';for await(const chunk of req){content+=chunk;assert(Buffer.byteLength(content)<=750000,'Request too large.',413);}
+      let content='';for await(const chunk of req){content+=chunk;assert(Buffer.byteLength(content)<=10000000,'Request too large.',413);}
       try{body=JSON.parse(content||'{}');}catch{throw new HttpError(400,'Invalid JSON request.');}
       assert(body&&typeof body==='object'&&!Array.isArray(body),'Expected a JSON object.');
     }
@@ -128,6 +129,48 @@ export function createApplication({ dataDir=process.env.DATA_DIR||join(root,'dat
       }
       return send(view(store.save(p,'project.created')),201);
     }
+    if(url.pathname==='/api/projects/intake' && req.method==='POST') {
+      const name = text(body.name || 'Untitled Project', 'Project name', 100);
+      const description = typeof body.description === 'string' ? body.description.slice(0, 4000) : '';
+      const domain = body.domain ? text(body.domain, 'Domain', 100) : undefined;
+      const jurisdiction = body.jurisdiction ? text(body.jurisdiction, 'Jurisdiction', 100) : undefined;
+      const p = newProject({ name, description, domain, jurisdiction });
+
+      const parsedText = await parseDocument({ fileData: body.fileData, fileName: body.fileName });
+      let intakeData;
+      if (settings.mode === 'live' && settings.apiKey) {
+        try {
+          const result = await complete({ ...settings }, documentIntakePrompt(), {
+            project: { name: p.name, description: p.description, domain: p.domain, jurisdiction: p.jurisdiction },
+            documentText: parsedText.slice(0, 50000)
+          }, fetchImpl);
+          intakeData = validateDocumentIntake(result.output, parsedText);
+        } catch (e) {
+          console.warn('Live document intake failed or rejected, falling back to heuristic intake:', e.message);
+          intakeData = demoDocumentIntake(parsedText);
+        }
+      } else {
+        intakeData = demoDocumentIntake(parsedText);
+      }
+
+      applyDocumentIntake(p, intakeData, uid, now);
+      store.save(p, 'project.intake.created');
+
+      if (body.autoAnalyze === true) {
+        const ready = readiness(p);
+        const snapshot = structuredClone(p);
+        delete snapshot.analyses;
+        const query = `SDLC lifecycle agile spiral waterfall V-Model risk security assurance ${p.description} ${p.requirements.map(r=>r.statement).join(' ')}`;
+        const refs = await rag.search(query, 6).catch(() => []);
+        const a = { id: uid('a-'), createdAt: now(), status: 'running', mode: settings.mode, model: settings.model, provisional: !ready.ready, snapshotHash: snapshotHash(p), snapshot, readiness: ready, decision: rank(p), references: refs, rag: { ...rag.status(), query }, agents: [] };
+        p.analyses.push(a);
+        store.save(p, 'analysis.started', a.id);
+        locks.add(p.id);
+        void runAnalysis(snapshot, a.id, { ...settings });
+      }
+
+      return send(view(p), 201);
+    }
     if(url.pathname==='/api/demo' && req.method==='POST') {
       const p=newProject({name:'Sentinel · Fraud detection',description:'Demonstration project for a transaction fraud detection service. All stakeholders and statements are synthetic.',jurisdiction:'Demo — not a compliance assessment'});
       const names=[['Maya Chen','Business / product owner'],['Arjun Rao','Software architects / developers'],['Samira Patel','Compliance / legal']];
@@ -169,6 +212,42 @@ export function createApplication({ dataDir=process.env.DATA_DIR||join(root,'dat
         const s=p.stakeholders.find(s=>s.id===parts[4]);assert(s,'Stakeholder not found.',404);assert(['open','complete','omitted'].includes(body.status),'Invalid interview status.');
         if(body.status==='complete') assert(p.messages.some(m=>m.stakeholderId===s.id&&m.role==='user'),'Collect an answer or mark the stakeholder omitted.');
         s.status=body.status;return send(view(store.save(p,'stakeholder.status',s.id)));
+      }
+      if(resource==='document-intake' && req.method==='POST') {
+        const parsedText = await parseDocument({ fileData: body.fileData, fileName: body.fileName });
+        let intakeData;
+        if (settings.mode === 'live' && settings.apiKey) {
+          try {
+            const result = await complete({ ...settings }, documentIntakePrompt(), {
+              project: { name: p.name, description: p.description, domain: p.domain, jurisdiction: p.jurisdiction },
+              documentText: parsedText.slice(0, 50000)
+            }, fetchImpl);
+            intakeData = validateDocumentIntake(result.output, parsedText);
+          } catch (e) {
+            console.warn('Live document intake failed or rejected, falling back to heuristic intake:', e.message);
+            intakeData = demoDocumentIntake(parsedText);
+          }
+        } else {
+          intakeData = demoDocumentIntake(parsedText);
+        }
+
+        applyDocumentIntake(p, intakeData, uid, now);
+        store.save(p, 'project.intake.applied');
+
+        if (body.autoAnalyze === true) {
+          const ready = readiness(p);
+          const snapshot = structuredClone(p);
+          delete snapshot.analyses;
+          const query = `SDLC lifecycle agile spiral waterfall V-Model risk security assurance ${p.description} ${p.requirements.map(r=>r.statement).join(' ')}`;
+          const refs = await rag.search(query, 6).catch(() => []);
+          const a = { id: uid('a-'), createdAt: now(), status: 'running', mode: settings.mode, model: settings.model, provisional: !ready.ready, snapshotHash: snapshotHash(p), snapshot, readiness: ready, decision: rank(p), references: refs, rag: { ...rag.status(), query }, agents: [] };
+          p.analyses.push(a);
+          store.save(p, 'analysis.started', a.id);
+          locks.add(p.id);
+          void runAnalysis(snapshot, a.id, { ...settings });
+        }
+
+        return send(view(p));
       }
       if(resource==='messages'&&req.method==='POST') {
         const s=p.stakeholders.find(s=>s.id===body.stakeholderId);assert(s,'Select a stakeholder.',404);assert(s.status==='open','Reopen the interview before adding answers.');

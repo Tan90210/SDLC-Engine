@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {newProject} from '../src/store.js';
-import {readiness,rank,retrieve,validateExtraction,snapshotHash} from '../src/engine.js';
+import {newProject,uid,now} from '../src/store.js';
+import {readiness,rank,retrieve,validateExtraction,snapshotHash,validateDocumentIntake,demoDocumentIntake,applyDocumentIntake} from '../src/engine.js';
+import {parseDocument} from '../src/document-parser.js';
 import {FACTORS} from '../src/catalog.js';
 const REFERENCES=[{id:'ref-spiral',title:'Spiral',text:'Spiral development is driven by risk reduction under uncertainty.'},{id:'ref-agile',title:'Agile',text:'Agile delivery uses feedback and working increments.'}];
 import {requirementsCSV} from '../src/export.js';
@@ -58,4 +59,31 @@ test('provider errors are actionable and do not disclose provider response secre
   await assert.rejects(complete({apiKey:'secret',model:'openrouter/free'},'',{},async()=>new Response('secret-provider-body',{status:401})),/rejected the API key/);
   await assert.rejects(complete({apiKey:'secret',model:'vendor/paid'},'',{}),/Only openrouter/);
   await assert.rejects(complete({apiKey:'',model:'openrouter/free'},'',{}),/Add your OpenRouter/);
+});
+
+test('document parser extracts text from plain text and validates empty files', async () => {
+  const text = 'Maya: The system must enforce audit trails.';
+  const extracted = await parseDocument({ fileData: text, fileName: 'notes.txt' });
+  assert.equal(extracted, text);
+  await assert.rejects(parseDocument({ fileData: '', fileName: 'notes.txt' }), /No document content provided/);
+});
+
+test('document intake extracts stakeholders, formal requirements with AI derivations, and decision factors', () => {
+  const doc = `Maya: Our fraud detection rules change weekly and we need fast releases.
+Arjun: Failure can cause severe financial loss. Every automated decision must be traceable to the rule version.
+Samira: Verification and approvals are legally required before production release.`;
+
+  const intake = demoDocumentIntake(doc);
+  assert.ok(intake.stakeholders.length >= 2);
+  assert.ok(intake.requirements.length >= 1);
+  assert.ok(intake.requirements[0].derivation.length > 10, 'Requirement should include AI derivation explanation');
+  assert.ok(intake.factors.risk.value >= 3);
+
+  const p = newProject({ name: 'Document Test' });
+  applyDocumentIntake(p, intake, uid, now);
+  assert.ok(p.stakeholders.length >= 2);
+  assert.ok(p.requirements.length >= 1);
+  assert.equal(p.requirements[0].status, 'confirmed');
+  assert.ok(p.requirements[0].derivation, 'Applied requirement has derivation');
+  assert.ok(p.factors.risk);
 });
