@@ -189,7 +189,18 @@ export function createApplication({ dataDir=process.env.DATA_DIR||join(root,'dat
     }
     if(parts[0]==='api'&&parts[1]==='projects'&&parts[2]) {
       const p=projectFor(parts[2]);const resource=parts[3];
-      if(!resource&&req.method==='GET') return send(view(p));
+      if(!resource&&req.method==='GET') {
+        // Older saved recommendations may contain evidence from only one
+        // document. Refresh them once in live mode so the diversified RAG
+        // evidence set is shown instead of stale NASA-only passages.
+        const sources=new Set((p.recommendation?.evidence||[]).map(item=>item.title||item.documentId||item.source));
+        if(settings.mode==='live'&&p.recommendation&&p.requirements.length&&sources.size<2) {
+          Object.assign(p.factors,inferFactorsFromBrief(p.description));
+          p.recommendation=await createRecommendation(p);
+          store.save(p,'project.recommendation.evidence.refreshed');
+        }
+        return send(view(p));
+      }
       if(resource==='audit'&&req.method==='GET') return send(store.audit(p.id));
       if(resource==='export'&&req.method==='GET') {
         const format=url.searchParams.get('format')||'json';const runId=url.searchParams.get('analysis');const a=runId==='current'?null:runId?p.analyses.find(x=>x.id===runId):p.analyses.at(-1);
