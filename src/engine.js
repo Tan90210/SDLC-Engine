@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { FACTORS, CATEGORIES } from './catalog.js';
+import { FACTORS, CATEGORIES, CANDIDATES } from './catalog.js';
 
 const tokenize = text => text.toLowerCase().match(/[a-z0-9]{3,}/g) || [];
 const stop = new Set(['the','and','that','with','for','are','this','from','what','how','can','our','should','will','have']);
@@ -67,13 +67,7 @@ export function validateExtraction(raw, project, stakeholderId, message) {
   return { reply: raw.reply.slice(0,5000), requirements, factors, conflicts };
 }
 
-const candidates = [
-  { id: 'agile', name: 'Agile / incremental', ideal: [1,2,2,2,5,5,4,2], guidanceDocuments: ['scrum-guide','nist-ssdf'], tradeoff: 'Needs timely feedback, disciplined testing and useful release increments.' },
-  { id: 'spiral', name: 'Spiral / risk-driven', ideal: [2,5,5,4,4,3,4,3], guidanceDocuments: ['sei-spiral','nist-ssdf'], tradeoff: 'Adds risk-analysis effort; each cycle must retire a specific risk.' },
-  { id: 'vmodel', name: 'V-Model', ideal: [5,5,2,5,2,2,3,5], guidanceDocuments: ['nasa-handbook','nist-ssdf'], tradeoff: 'Strong specification-to-test traceability; changes can require substantial rework.' },
-  { id: 'waterfall', name: 'Waterfall / sequential', ideal: [5,3,1,4,1,1,3,5], guidanceDocuments: ['nasa-handbook','sei-spiral'], tradeoff: 'Fits agreed phase boundaries; late feedback is costly when assumptions are wrong.' },
-  { id: 'hybrid', name: 'Incremental + assurance gates', ideal: [2,5,3,5,4,4,4,4], guidanceDocuments: ['scrum-guide','nasa-handbook','nist-ssdf'], tradeoff: 'Requires explicit gate owners and evidence, with care to avoid excessive process overhead.' }
-];
+const candidates = CANDIDATES;
 export const WEIGHTS = [1.3,1.4,1.3,1.4,1,1.1,.7,.8];
 function score(ideal, values) {
   const total = WEIGHTS.reduce((a,b)=>a+b,0);

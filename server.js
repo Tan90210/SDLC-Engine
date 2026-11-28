@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { createStore, newProject, uid, now } from './src/store.js';
-import { FACTORS, CATEGORIES, ROLES, AGENTS } from './src/catalog.js';
+import { FACTORS, CATEGORIES, ROLES, AGENTS, CANDIDATES } from './src/catalog.js';
 import { readiness, rank, snapshotHash, validateExtraction, demoExtract, validateDocumentIntake, demoDocumentIntake, applyDocumentIntake } from './src/engine.js';
 import { complete, freeModel, interviewPrompt, agentPrompt, documentIntakePrompt } from './src/llm.js';
 import { report, requirementsCSV } from './src/export.js';
@@ -28,7 +28,7 @@ export function createApplication({ dataDir=process.env.DATA_DIR||join(root,'dat
     if(changed) store.save(p,'analysis.interrupted');
   }
   const view = p => ({ ...p, readiness:readiness(p), busy:locks.has(p.id), currentHash:snapshotHash(p) });
-  const config = () => ({mode:settings.mode,model:settings.model,hasKey:Boolean(settings.apiKey),factors:FACTORS,categories:CATEGORIES,roles:ROLES});
+  const config = () => ({mode:settings.mode,model:settings.model,hasKey:Boolean(settings.apiKey),factors:FACTORS,categories:CATEGORIES,roles:ROLES,candidates:CANDIDATES});
   const projectFor = id => {const p=store.get(id);assert(p,'Project not found.',404);return p;};
   const unlocked = id => assert(!locks.has(id),'This project has an interview or analysis running. Wait for it to finish.',409);
   const knownSources = p => new Set(p.messages.filter(m=>m.role==='user').map(m=>m.id));
@@ -160,7 +160,7 @@ export function createApplication({ dataDir=process.env.DATA_DIR||join(root,'dat
         const ready = readiness(p);
         const snapshot = structuredClone(p);
         delete snapshot.analyses;
-        const query = `SDLC lifecycle agile spiral waterfall V-Model risk security assurance ${p.description} ${p.requirements.map(r=>r.statement).join(' ')}`;
+        const query = `SDLC lifecycle agile XP DSDM RAD spiral waterfall V-Model prototype iterative risk security assurance ${p.description} ${p.requirements.map(r=>r.statement).join(' ')}`;
         const refs = await rag.search(query, 6).catch(() => []);
         const a = { id: uid('a-'), createdAt: now(), status: 'running', mode: settings.mode, model: settings.model, provisional: !ready.ready, snapshotHash: snapshotHash(p), snapshot, readiness: ready, decision: rank(p), references: refs, rag: { ...rag.status(), query }, agents: [] };
         p.analyses.push(a);
@@ -238,7 +238,7 @@ export function createApplication({ dataDir=process.env.DATA_DIR||join(root,'dat
           const ready = readiness(p);
           const snapshot = structuredClone(p);
           delete snapshot.analyses;
-          const query = `SDLC lifecycle agile spiral waterfall V-Model risk security assurance ${p.description} ${p.requirements.map(r=>r.statement).join(' ')}`;
+          const query = `SDLC lifecycle agile XP DSDM RAD spiral waterfall V-Model prototype iterative risk security assurance ${p.description} ${p.requirements.map(r=>r.statement).join(' ')}`;
           const refs = await rag.search(query, 6).catch(() => []);
           const a = { id: uid('a-'), createdAt: now(), status: 'running', mode: settings.mode, model: settings.model, provisional: !ready.ready, snapshotHash: snapshotHash(p), snapshot, readiness: ready, decision: rank(p), references: refs, rag: { ...rag.status(), query }, agents: [] };
           p.analyses.push(a);
@@ -322,7 +322,7 @@ export function createApplication({ dataDir=process.env.DATA_DIR||join(root,'dat
         assert(settings.mode!=='live'||settings.apiKey,'Add an OpenRouter API key in Settings.',400);
         assert(p.messages.some(m=>m.role==='user'),'Collect stakeholder evidence before analysis.');
         const snapshot=structuredClone(p);delete snapshot.analyses;
-        const query=`SDLC lifecycle agile spiral waterfall V-Model risk security assurance ${p.description} ${p.requirements.map(r=>r.statement).join(' ')}`;
+        const query=`SDLC lifecycle agile XP DSDM RAD spiral waterfall V-Model prototype iterative risk security assurance ${p.description} ${p.requirements.map(r=>r.statement).join(' ')}`;
         const refs=await rag.search(query,6);
         // Retrieval can take a moment; re-check after awaiting before acquiring the write lock.
         unlocked(p.id);assert(store.get(p.id).revision===p.revision,'Project changed during retrieval. Retry analysis.',409);

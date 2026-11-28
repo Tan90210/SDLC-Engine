@@ -17,7 +17,7 @@ The application follows three stages:
 2. **Requirements:** Review and confirm the extracted requirements.
 3. **Recommendation:** Compare SDLC approaches using project characteristics and specialist analysis.
 
-Four specialist roles review requirements, risk and assurance, delivery constraints, and the final recommendation. A separate weighted rubric ranks Agile/incremental, Spiral, V-Model, Waterfall, and incremental delivery with assurance gates. These scores represent heuristic suitability, not probabilities.
+Four specialist roles review requirements, risk and assurance, delivery constraints, and the final recommendation. A separate weighted rubric evaluates and ranks candidate models including Waterfall, V-Shaped (V-Model), Prototype Model, Iterative / Incremental, RAD (Rapid Application Development), Spiral, Agile XP (Extreme Programming), Agile DSDM, Agile / incremental (Scrum), and Incremental delivery with assurance gates. These scores represent heuristic suitability, not probabilities.
 
 ## RAG Knowledge Corpus
 

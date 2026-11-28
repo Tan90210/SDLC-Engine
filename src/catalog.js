@@ -18,3 +18,16 @@ export const AGENTS = [
   { id: 'delivery', name: 'Delivery analyst', focus: 'Assess stakeholder availability, increments, delivery constraints, dependencies and team capability.' },
   { id: 'review', name: 'Recommendation reviewer', focus: 'Challenge the preceding analyses and ranking. Identify unsupported claims, material missing information and conditions that would change the ranking.' }
 ];
+
+export const CANDIDATES = [
+  { id: 'waterfall', name: 'Waterfall / sequential', ideal: [5,3,1,4,1,1,3,5], guidanceDocuments: ['nasa-handbook','sei-spiral'], tradeoff: 'Fits agreed phase boundaries; late feedback is costly when assumptions are wrong.' },
+  { id: 'vmodel', name: 'V-Shaped (V-Model)', ideal: [5,5,2,5,2,2,3,5], guidanceDocuments: ['nasa-handbook','nist-ssdf'], tradeoff: 'Strong specification-to-test traceability; changes can require substantial rework.' },
+  { id: 'prototype', name: 'Prototype Model', ideal: [1,2,5,1,5,3,3,2], guidanceDocuments: ['sei-spiral','nasa-handbook'], tradeoff: 'Clarifies high UI and technical uncertainty through early working mockups; risk of stakeholders mistaking prototype for final software.' },
+  { id: 'iterative', name: 'Iterative / Incremental', ideal: [3,3,3,3,4,4,3,3], guidanceDocuments: ['scrum-guide','nasa-handbook'], tradeoff: 'Progressively refines system across planned cycles; balances evolving requirements with architectural baseline control.' },
+  { id: 'rad', name: 'RAD (Rapid Application Development)', ideal: [2,2,2,1,5,5,5,3], guidanceDocuments: ['scrum-guide','sei-spiral'], tradeoff: 'Ultra-fast timeboxed delivery (60–90 days) using visual/modular tools and continuous user focus groups; requires high team capability.' },
+  { id: 'spiral', name: 'Spiral / risk-driven', ideal: [2,5,5,4,4,3,4,3], guidanceDocuments: ['sei-spiral','nist-ssdf'], tradeoff: 'Adds risk-analysis effort; each cycle must retire a specific risk.' },
+  { id: 'agile-xp', name: 'Agile XP (Extreme Programming)', ideal: [1,3,3,2,5,5,5,1], guidanceDocuments: ['scrum-guide','nist-ssdf'], tradeoff: 'Emphasizes intense engineering discipline (TDD, continuous refactoring, pair programming, automated CI); requires close customer collaboration.' },
+  { id: 'agile-dsdm', name: 'Agile DSDM (Dynamic Systems)', ideal: [2,4,2,4,4,4,4,5], guidanceDocuments: ['scrum-guide','nist-ssdf'], tradeoff: 'Guarantees fixed schedule and budget with MoSCoW variable scope and formal enterprise governance; demands early stakeholder consensus.' },
+  { id: 'agile', name: 'Agile / incremental', ideal: [1,2,2,2,5,5,4,2], guidanceDocuments: ['scrum-guide','nist-ssdf'], tradeoff: 'Needs timely feedback, disciplined testing and useful release increments.' },
+  { id: 'hybrid', name: 'Incremental + assurance gates', ideal: [2,5,3,5,4,4,4,4], guidanceDocuments: ['scrum-guide','nasa-handbook','nist-ssdf'], tradeoff: 'Requires explicit gate owners and evidence, with care to avoid excessive process overhead.' }
+];
